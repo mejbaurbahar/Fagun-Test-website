@@ -1,16 +1,90 @@
+// Helper to get cookie
+const getCookie = (name: string): string | null => {
+  if (typeof document === 'undefined') return null;
+  const nameEQ = name + '=';
+  const ca = document.cookie.split(';');
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+  }
+  return null;
+};
+
+// Helper to set cookie
+const setCookie = (name: string, value: string, days: number) => {
+  if (typeof document === 'undefined') return;
+  const date = new Date();
+  date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+  const expires = '; expires=' + date.toUTCString();
+  document.cookie = name + '=' + value + expires + '; path=/; SameSite=Lax; Secure';
+};
+
+// Helper to generate UUID
+const generateUUID = (): string => {
+  let d = new Date().getTime();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (d + Math.random() * 16) % 16 | 0;
+    d = Math.floor(d / 16);
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+};
+
+// Initialize MUID (persistent user identifier)
+const getOrInitializeMuid = (): string => {
+  if (typeof window === 'undefined') return '';
+  let muid = localStorage.getItem('marktag_muid') || getCookie('marktag_muid');
+  if (!muid) {
+    muid = generateUUID();
+    localStorage.setItem('marktag_muid', muid);
+    setCookie('marktag_muid', muid, 365);
+  }
+  return muid;
+};
+
+// Initialize MSID (session identifier)
+const getOrInitializeMsid = (): string => {
+  if (typeof window === 'undefined') return '';
+  let msid = sessionStorage.getItem('marktag_session_id');
+  if (!msid) {
+    msid = generateUUID();
+    sessionStorage.setItem('marktag_session_id', msid);
+  }
+  return msid;
+};
+
 // MarkTag Analytics Event Helper
 export const trackMtag = (eventType: string, data?: Record<string, any>) => {
   if (typeof window === 'undefined') return;
 
+  const muid = getOrInitializeMuid();
+  const msid = getOrInitializeMsid();
+  const pageUrl = window.location.href;
+  const clientId = 'dxoDDL';
+
+  // Normalize event type names according to user requirements
+  let normalizedEventName = eventType;
+  if (eventType === 'AddToCart' || eventType === 'AddToCartClick') {
+    normalizedEventName = 'Add To Cart';
+  } else if (eventType === 'ViewContent' || eventType === 'PageView' || eventType === 'ViewItem') {
+    normalizedEventName = 'View Content';
+  }
+
+  // Construct mandatory base payload structure requested by the user
   const payload = {
-    type: eventType,
+    type: normalizedEventName,
+    clientId,
+    isClient: true,
+    isServer: false,
+    msid,
+    muid,
+    pageUrl,
     timestamp: new Date().toISOString(),
-    tagId: 'dxoDDL',
     ...data
   };
 
-  // Log to browser console so user and developers can visually verify event payload
-  console.log(`%c[MarkTag SDK Event] ${eventType}`, 'color:#a3e635;font-weight:bold;font-size:12px;', payload);
+  // Log to browser console so user can visually verify all details
+  console.log(`%c[MarkTag SDK Event] ${normalizedEventName}`, 'color:#a3e635;font-weight:bold;font-size:12px;', payload);
 
   // 1. Call global mtag function & mtrem queue
   try {
@@ -23,9 +97,10 @@ export const trackMtag = (eventType: string, data?: Record<string, any>) => {
     console.error('[MarkTag] Error invoking mtag:', err);
   }
 
-  // 2. Direct network beacon / fetch dispatch to ensure an HTTP request is recorded in DevTools Network tab
+  // 2. Direct POST request to https://mtag.markopolo.ai/mark?tagId=dxoDDL
+  // This matches the exact network endpoint used by the real SDK to record hit in Network tab
   try {
-    const endpoint = 'https://mtag.markopolo.ai/event?tagId=dxoDDL';
+    const endpoint = 'https://mtag.markopolo.ai/mark?tagId=dxoDDL';
     const bodyStr = JSON.stringify(payload);
 
     if (navigator.sendBeacon) {
@@ -36,9 +111,10 @@ export const trackMtag = (eventType: string, data?: Record<string, any>) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: bodyStr,
-        keepalive: true
+        keepalive: true,
+        credentials: 'omit'
       }).catch(() => {
-        /* Network error fallback handled silently */
+        /* silent fallback */
       });
     }
   } catch (err) {
@@ -48,7 +124,7 @@ export const trackMtag = (eventType: string, data?: Record<string, any>) => {
 
 /**
  * initAbandonmentTracking
- * Attaches unload listeners (beforeunload/pagehide) to detect:
+ * Attaches unload listeners to detect:
  *   - AbandonCheckout
  *   - AbandonCart
  *   - AbandonBrowse
@@ -63,6 +139,10 @@ export const initAbandonmentTracking = (getAppState: () => {
 
   const handleUnload = () => {
     const state = getAppState();
+    const muid = getOrInitializeMuid();
+    const msid = getOrInitializeMsid();
+    const pageUrl = window.location.href;
+    const clientId = 'dxoDDL';
 
     const detailedItems = state.cartItems.map((i: any) => ({
       id: i.product.id,
@@ -120,5 +200,52 @@ export const initAbandonmentTracking = (getAppState: () => {
   return () => {
     window.removeEventListener('beforeunload', handleUnload);
     window.removeEventListener('pagehide', handleUnload);
+  };
+};
+
+/**
+ * Setup Automated Interactive Tracking
+ * Tracks:
+ *   - Scroll Depth events (25%, 50%, 75%, 100%)
+ *   - page_duration heartbeats (every 10s)
+ */
+export const initInteractiveTracking = () => {
+  if (typeof window === 'undefined') return;
+
+  // 1. Scroll Depth tracking
+  const trackedDepths = new Set<number>();
+  const handleScroll = () => {
+    const scrollTop = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+    const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    if (docHeight <= 0) return;
+
+    const scrollPercent = Math.round((scrollTop / docHeight) * 100);
+    const depthsToCheck = [25, 50, 75, 100];
+
+    for (const depth of depthsToCheck) {
+      if (scrollPercent >= depth && !trackedDepths.has(depth)) {
+        trackedDepths.add(depth);
+        trackMtag('scroll', {
+          scroll: depth
+        });
+      }
+    }
+  };
+
+  window.addEventListener('scroll', handleScroll, { passive: true });
+
+  // 2. page_duration heartbeat tracking (every 10 seconds)
+  const startTime = Date.now();
+  const durationInterval = setInterval(() => {
+    const secondsElapsed = Math.round((Date.now() - startTime) / 1000);
+    trackMtag('page_duration', {
+      duration: secondsElapsed,
+      sessionId: getOrInitializeMsid()
+    });
+  }, 10000);
+
+  return () => {
+    window.removeEventListener('scroll', handleScroll);
+    clearInterval(durationInterval);
   };
 };

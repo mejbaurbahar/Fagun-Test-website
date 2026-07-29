@@ -12,7 +12,7 @@ import { SizeGuideModal } from './components/SizeGuideModal';
 
 import { INITIAL_PRODUCTS } from './data/products';
 import { Product, CartItem, Category, Currency, Order } from './types';
-import { trackMtag, initAbandonmentTracking } from './utils/analytics';
+import { trackMtag, initAbandonmentTracking, initInteractiveTracking } from './utils/analytics';
 
 export default function App() {
   // Navigation & View State
@@ -87,6 +87,12 @@ export default function App() {
       console.error('Error saving wishlist:', e);
     }
   }, [wishlistIds]);
+
+  // Initialize Automated Interactive Tracking (Scroll Depth & Page Duration Heartbeats)
+  useEffect(() => {
+    const cleanup = initInteractiveTracking();
+    return cleanup;
+  }, []);
 
   // Automatic Abandonment Tracking (AbandonCart, AbandonCheckout, AbandonBrowse)
   useEffect(() => {
