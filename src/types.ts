@@ -69,3 +69,11 @@ export interface Order {
   status: 'Processing' | 'Shipped' | 'Delivered';
   estimatedDelivery: string;
 }
+
+declare global {
+  interface Window {
+    mtrem?: any[];
+    mtag?: (...args: any[]) => void;
+  }
+}
+

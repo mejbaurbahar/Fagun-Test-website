@@ -102,6 +102,14 @@ export default function App() {
   };
 
   const handleAddToCart = (product: Product, quantity: number, size?: string, color?: string) => {
+    if (typeof window !== 'undefined' && typeof (window as any).mtag === 'function') {
+      (window as any).mtag('event', {
+        type: 'AddToCart',
+        value: product.price * quantity,
+        currency,
+        products: [{ id: product.id, name: product.name, price: product.price, quantity }]
+      });
+    }
     setCartItems((prev) => {
       const existingIdx = prev.findIndex(
         (i) => i.product.id === product.id && i.selectedSize === size && i.selectedColor === color
@@ -169,6 +177,19 @@ export default function App() {
   };
 
   const handleCompleteOrder = (order: Order) => {
+    if (typeof window !== 'undefined' && typeof (window as any).mtag === 'function') {
+      (window as any).mtag('event', {
+        type: 'Purchase',
+        value: order.total,
+        currency: order.currency,
+        products: order.items.map((item) => ({
+          id: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity
+        }))
+      });
+    }
     setCompletedOrder(order);
     setCartItems([]);
     setCurrentView('confirmation');
