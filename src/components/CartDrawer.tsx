@@ -178,7 +178,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
         {/* Footer Summary & Checkout Trigger */}
         {cartItems.length > 0 && (
-          <div className="p-4 sm:p-6 border-t border-neutral-800 bg-neutral-950/80 space-y-4">
+          <div className="shrink-0 p-4 sm:p-6 border-t border-neutral-800 bg-neutral-950/95 space-y-4">
             
             {/* Promo Code Input */}
             <form onSubmit={handleApplyCoupon} className="space-y-1.5">
@@ -236,16 +236,32 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
             </div>
 
-            {/* Checkout CTA */}
+            {/* Checkout CTA Button */}
             <button
               onClick={() => {
+                if (typeof window !== 'undefined' && typeof (window as any).mtag === 'function') {
+                  (window as any).mtag('event', {
+                    type: 'InitiateCheckout',
+                    value: finalTotal,
+                    currency,
+                    num_items: cartItems.reduce((acc, i) => acc + i.quantity, 0),
+                    products: cartItems.map((i) => ({
+                      id: i.product.id,
+                      name: i.product.name,
+                      price: i.product.price,
+                      quantity: i.quantity,
+                      size: i.selectedSize,
+                      color: i.selectedColor
+                    }))
+                  });
+                }
                 onClose();
                 onProceedToCheckout();
               }}
-              className="w-full bg-[var(--accent-lime)] text-[var(--accent-lime-ink)] py-3.5 px-4 rounded-md text-xs font-semibold flex items-center justify-center gap-2 hover:bg-opacity-90 transition-opacity shadow-lg"
+              className="w-full bg-[var(--accent-lime)] text-[var(--accent-lime-ink)] py-3.5 px-4 rounded-md text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all shadow-lg active:scale-[0.98] cursor-pointer"
             >
               <Lock className="w-4 h-4" />
-              <span>Checkout • {currencyData.symbol}{finalTotal.toFixed(2)}</span>
+              <span>Proceed to Checkout • {currencyData.symbol}{finalTotal.toFixed(2)}</span>
               <ArrowRight className="w-4 h-4 ml-auto" />
             </button>
           </div>

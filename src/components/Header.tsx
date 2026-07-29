@@ -172,7 +172,7 @@ export const Header: React.FC<HeaderProps> = ({
             {cartCount > 0 && currentView !== 'checkout' && (
               <button
                 onClick={onNavigateCheckout}
-                className="hidden sm:flex items-center gap-1.5 bg-[var(--accent-lime)] text-[var(--accent-lime-ink)] px-4 py-2 rounded-full text-xs font-semibold hover:opacity-90 transition-opacity"
+                className="flex items-center gap-1.5 bg-[var(--accent-lime)] text-[var(--accent-lime-ink)] px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-semibold hover:opacity-90 transition-opacity shadow-md"
               >
                 <span>Checkout</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -184,8 +184,21 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Drawer Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-[var(--neutral-900)] border-b border-neutral-800 px-4 py-4 space-y-2">
-          <div className="text-xs uppercase font-semibold text-neutral-400 mb-2">Categories</div>
+        <div className="lg:hidden bg-[var(--neutral-900)] border-b border-neutral-800 px-4 py-4 space-y-3">
+          {cartCount > 0 && currentView !== 'checkout' && (
+            <button
+              onClick={() => {
+                onNavigateCheckout();
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full bg-[var(--accent-lime)] text-[var(--accent-lime-ink)] py-2.5 px-4 rounded-md text-xs font-semibold flex items-center justify-center gap-2 shadow"
+            >
+              <span>Proceed to Checkout ({cartCount} items)</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
+
+          <div className="text-xs uppercase font-semibold text-neutral-400 mb-1">Categories</div>
           <div className="grid grid-cols-2 gap-2">
             {categories.map((cat) => (
               <button

@@ -11,6 +11,7 @@ import { Footer } from './components/Footer';
 
 import { INITIAL_PRODUCTS } from './data/products';
 import { Product, CartItem, Category, Currency, Order } from './types';
+import { trackMtag } from './utils/analytics';
 
 export default function App() {
   // Navigation & View State
@@ -78,11 +79,23 @@ export default function App() {
     }
   }, [wishlistIds]);
 
+  // Track PageView on view change
+  useEffect(() => {
+    trackMtag('PageView', { page: currentView });
+  }, [currentView]);
+
   // Handler Actions
   const handleQuickAdd = (product: Product, size?: string) => {
+    const selectedSize = size || (product.sizes ? product.sizes[0] : undefined);
+    const selectedColor = product.colors ? product.colors[0].name : undefined;
+    trackMtag('AddToCart', {
+      value: product.price,
+      currency,
+      products: [{ id: product.id, name: product.name, price: product.price, quantity: 1, size: selectedSize, color: selectedColor }]
+    });
     setCartItems((prev) => {
       const existingIdx = prev.findIndex(
-        (i) => i.product.id === product.id && i.selectedSize === size
+        (i) => i.product.id === product.id && i.selectedSize === selectedSize
       );
       if (existingIdx > -1) {
         const updated = [...prev];
@@ -94,22 +107,19 @@ export default function App() {
         {
           product,
           quantity: 1,
-          selectedSize: size || (product.sizes ? product.sizes[0] : undefined),
-          selectedColor: product.colors ? product.colors[0].name : undefined
+          selectedSize,
+          selectedColor
         }
       ];
     });
   };
 
   const handleAddToCart = (product: Product, quantity: number, size?: string, color?: string) => {
-    if (typeof window !== 'undefined' && typeof (window as any).mtag === 'function') {
-      (window as any).mtag('event', {
-        type: 'AddToCart',
-        value: product.price * quantity,
-        currency,
-        products: [{ id: product.id, name: product.name, price: product.price, quantity }]
-      });
-    }
+    trackMtag('AddToCart', {
+      value: product.price * quantity,
+      currency,
+      products: [{ id: product.id, name: product.name, price: product.price, quantity, size, color }]
+    });
     setCartItems((prev) => {
       const existingIdx = prev.findIndex(
         (i) => i.product.id === product.id && i.selectedSize === size && i.selectedColor === color
@@ -134,6 +144,12 @@ export default function App() {
   const handleBuyNow = (product: Product, quantity: number, size?: string, color?: string) => {
     handleAddToCart(product, quantity, size, color);
     setSelectedDetailProduct(null);
+    trackMtag('InitiateCheckout', {
+      value: product.price * quantity,
+      currency,
+      source: 'BuyNow',
+      products: [{ id: product.id, name: product.name, price: product.price, quantity, size, color }]
+    });
     setCurrentView('checkout');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -151,12 +167,34 @@ export default function App() {
   };
 
   const handleRemoveCartItem = (index: number) => {
+    const itemToRemove = cartItems[index];
+    if (itemToRemove) {
+      trackMtag('RemoveFromCart', {
+        value: itemToRemove.product.price * itemToRemove.quantity,
+        currency,
+        products: [{ id: itemToRemove.product.id, name: itemToRemove.product.name, price: itemToRemove.product.price, quantity: itemToRemove.quantity }]
+      });
+    }
     setCartItems((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleToggleWishlist = (product: Product) => {
+    const isWishlisted = wishlistIds.includes(product.id);
+    if (!isWishlisted) {
+      trackMtag('AddToWishlist', {
+        value: product.price,
+        currency,
+        products: [{ id: product.id, name: product.name, price: product.price }]
+      });
+    } else {
+      trackMtag('RemoveFromWishlist', {
+        value: product.price,
+        currency,
+        products: [{ id: product.id, name: product.name, price: product.price }]
+      });
+    }
     setWishlistIds((prev) =>
-      prev.includes(product.id)
+      isWishlisted
         ? prev.filter((id) => id !== product.id)
         : [...prev, product.id]
     );
@@ -164,36 +202,57 @@ export default function App() {
 
   const handleApplyDiscount = (code: string): boolean => {
     const clean = code.trim().toUpperCase();
+    let isSuccess = false;
+    let amount = 0;
     if (clean === 'FAGUN10' || clean === 'WELCOME10') {
       setDiscountCode(clean);
       setDiscountAmount(10); // 10%
-      return true;
+      amount = 10;
+      isSuccess = true;
     } else if (clean === 'FAGUN20' || clean === 'LUXURY20') {
       setDiscountCode(clean);
       setDiscountAmount(20); // 20%
-      return true;
+      amount = 20;
+      isSuccess = true;
     }
-    return false;
+    trackMtag('ApplyCoupon', { coupon_code: clean, success: isSuccess, discount_percentage: amount });
+    return isSuccess;
   };
 
   const handleCompleteOrder = (order: Order) => {
-    if (typeof window !== 'undefined' && typeof (window as any).mtag === 'function') {
-      (window as any).mtag('event', {
-        type: 'Purchase',
-        value: order.total,
-        currency: order.currency,
-        products: order.items.map((item) => ({
-          id: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity
-        }))
-      });
-    }
+    trackMtag('Purchase', {
+      transaction_id: order.id,
+      value: order.total,
+      subtotal: order.subtotal,
+      discount: order.discount,
+      shipping: order.shippingFee,
+      tax: order.tax,
+      currency: order.currency,
+      payment_method: order.paymentDetails.method,
+      products: order.items.map((item) => ({
+        id: item.product.id,
+        name: item.product.name,
+        price: item.product.price,
+        quantity: item.quantity,
+        size: item.selectedSize,
+        color: item.selectedColor
+      }))
+    });
     setCompletedOrder(order);
     setCartItems([]);
     setCurrentView('confirmation');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleViewProductDetail = (product: Product | null) => {
+    if (product) {
+      trackMtag('ViewItem', {
+        value: product.price,
+        currency,
+        products: [{ id: product.id, name: product.name, price: product.price, category: product.category }]
+      });
+    }
+    setSelectedDetailProduct(product);
   };
 
   const wishlistProducts = INITIAL_PRODUCTS.filter((p) => wishlistIds.includes(p.id));
@@ -205,21 +264,37 @@ export default function App() {
       <Header
         currentCategory={currentCategory}
         onSelectCategory={(cat) => {
+          trackMtag('SelectCategory', { category: cat });
           setCurrentCategory(cat);
           if (currentView !== 'shop') setCurrentView('shop');
         }}
         searchQuery={searchQuery}
         onSearchChange={(q) => {
           setSearchQuery(q);
+          if (q.trim()) trackMtag('Search', { search_string: q });
           if (currentView !== 'shop') setCurrentView('shop');
         }}
         currency={currency}
-        onCurrencyChange={setCurrency}
+        onCurrencyChange={(c) => {
+          trackMtag('ChangeCurrency', { currency: c });
+          setCurrency(c);
+        }}
         cartCount={cartItems.reduce((acc, i) => acc + i.quantity, 0)}
         wishlistCount={wishlistIds.length}
-        onOpenCart={() => setIsCartOpen(true)}
-        onOpenWishlist={() => setIsWishlistOpen(true)}
+        onOpenCart={() => {
+          trackMtag('ViewCart', { cart_count: cartItems.reduce((acc, i) => acc + i.quantity, 0) });
+          setIsCartOpen(true);
+        }}
+        onOpenWishlist={() => {
+          trackMtag('ViewWishlist', { wishlist_count: wishlistIds.length });
+          setIsWishlistOpen(true);
+        }}
         onNavigateCheckout={() => {
+          trackMtag('InitiateCheckout', {
+            currency,
+            num_items: cartItems.reduce((acc, i) => acc + i.quantity, 0),
+            products: cartItems.map((i) => ({ id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity }))
+          });
           setCurrentView('checkout');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
@@ -239,6 +314,7 @@ export default function App() {
             {/* Hero Collection Showcase Banner */}
             <HeroBanner
               onShopNow={(cat) => {
+                trackMtag('SelectCategory', { category: cat, source: 'HeroBanner' });
                 setCurrentCategory(cat);
                 const el = document.getElementById('catalog-grid');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -250,12 +326,18 @@ export default function App() {
               <ProductGrid
                 products={INITIAL_PRODUCTS}
                 currentCategory={currentCategory}
-                onSelectCategory={setCurrentCategory}
+                onSelectCategory={(cat) => {
+                  trackMtag('SelectCategory', { category: cat });
+                  setCurrentCategory(cat);
+                }}
                 searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
+                onSearchChange={(q) => {
+                  setSearchQuery(q);
+                  if (q.trim()) trackMtag('Search', { search_string: q });
+                }}
                 currency={currency}
                 onQuickAdd={handleQuickAdd}
-                onViewDetails={setSelectedDetailProduct}
+                onViewDetails={handleViewProductDetail}
                 wishlistIds={wishlistIds}
                 onToggleWishlist={handleToggleWishlist}
               />
@@ -325,7 +407,7 @@ export default function App() {
         currency={currency}
         onQuickAdd={(product) => handleQuickAdd(product)}
         onRemoveWishlist={handleToggleWishlist}
-        onViewDetails={(product) => setSelectedDetailProduct(product)}
+        onViewDetails={(product) => handleViewProductDetail(product)}
       />
 
       {/* Footer */}
