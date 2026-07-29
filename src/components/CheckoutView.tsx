@@ -111,6 +111,45 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     }
   };
 
+  // Customer Profile helper
+  const getCustomerProfile = () => ({
+    email: shippingAddress.email || shippingAddress.emailOrPhone,
+    phone: shippingAddress.phone || shippingAddress.emailOrPhone,
+    first_name: shippingAddress.firstName,
+    last_name: shippingAddress.lastName,
+    full_name: `${shippingAddress.firstName} ${shippingAddress.lastName}`.trim(),
+    address: shippingAddress.address,
+    apartment: shippingAddress.apartment || '',
+    city: shippingAddress.city,
+    state: shippingAddress.state,
+    zip_code: shippingAddress.zipCode,
+    country: shippingAddress.country,
+    email_newsletters: shippingAddress.emailNewsletters,
+    text_newsletters: shippingAddress.textNewsletters
+  });
+
+  const getDetailedItems = () => cartItems.map((item) => ({
+    id: item.product.id,
+    sku: item.product.sku,
+    name: item.product.name,
+    category: item.product.category,
+    price: item.product.price,
+    quantity: item.quantity,
+    size: item.selectedSize || 'N/A',
+    color: item.selectedColor || 'N/A',
+    image: item.product.images[0]
+  }));
+
+  useEffect(() => {
+    trackMtag('CheckoutStarted', {
+      value: totalAmount,
+      currency,
+      num_items: cartItems.reduce((acc, i) => acc + i.quantity, 0),
+      customer: getCustomerProfile(),
+      products: getDetailedItems()
+    });
+  }, []);
+
   const handleApplyCouponCode = (e: React.FormEvent) => {
     e.preventDefault();
     setCouponError('');
@@ -120,10 +159,10 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     const ok = onApplyDiscount(inputCoupon.trim());
     if (ok) {
       setCouponSuccess('Discount code applied!');
-      trackMtag('ApplyDiscount', { code: inputCoupon.trim(), success: true });
+      trackMtag('ApplyDiscount', { code: inputCoupon.trim(), success: true, customer: getCustomerProfile() });
     } else {
       setCouponError('Invalid code. Try "FAGUN10"');
-      trackMtag('ApplyDiscount', { code: inputCoupon.trim(), success: false });
+      trackMtag('ApplyDiscount', { code: inputCoupon.trim(), success: false, customer: getCustomerProfile() });
     }
   };
 
@@ -131,33 +170,44 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     e.preventDefault();
     setErrorMessage('');
 
+    const customer = getCustomerProfile();
+    const products = getDetailedItems();
+
     // Basic Validation
     if (!shippingAddress.email.trim() && !shippingAddress.phone.trim() && !shippingAddress.emailOrPhone.trim()) {
       const msg = 'Please enter your contact email address or mobile phone number.';
       setErrorMessage(msg);
-      trackMtag('CheckoutError', { error: msg, step: 'ContactInfo' });
+      trackMtag('CheckoutError', { error: msg, step: 'ContactInfo', customer, products });
       return;
     }
     if (!shippingAddress.firstName || !shippingAddress.lastName) {
       const msg = 'Please enter your first and last name.';
       setErrorMessage(msg);
-      trackMtag('CheckoutError', { error: msg, step: 'ShippingName' });
+      trackMtag('CheckoutError', { error: msg, step: 'ShippingName', customer, products });
       return;
     }
     if (!shippingAddress.address || !shippingAddress.city || !shippingAddress.zipCode) {
       const msg = 'Please complete your shipping address details.';
       setErrorMessage(msg);
-      trackMtag('CheckoutError', { error: msg, step: 'ShippingAddress' });
+      trackMtag('CheckoutError', { error: msg, step: 'ShippingAddress', customer, products });
       return;
     }
     if (!paymentDetails.cardNumber || !paymentDetails.expirationDate || !paymentDetails.securityCode) {
       const msg = 'Please enter valid credit card details.';
       setErrorMessage(msg);
-      trackMtag('CheckoutError', { error: msg, step: 'PaymentDetails' });
+      trackMtag('CheckoutError', { error: msg, step: 'PaymentDetails', customer, products });
       return;
     }
 
-    trackMtag('CheckoutStep', { step: 3, step_name: 'SubmitPayment', payment_method: paymentDetails.method, value: totalAmount });
+    trackMtag('CheckoutStep', {
+      step: 3,
+      step_name: 'SubmitPayment',
+      payment_method: paymentDetails.method,
+      value: totalAmount,
+      currency,
+      customer,
+      products
+    });
     setIsProcessing(true);
 
     // Simulate Stripe Payment Gateway Response based on Test Card Inputs
@@ -169,14 +219,14 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
       if (cleanNum.endsWith('2002')) {
         const msg = 'Your card was declined. Please test with card "4242 4242 4242 4242" for an approved transaction.';
         setErrorMessage(msg);
-        trackMtag('CheckoutError', { error: 'CardDeclined', step: 'PaymentProcessing' });
+        trackMtag('CheckoutError', { error: 'CardDeclined', step: 'PaymentProcessing', customer, products });
         return;
       }
 
       if (cleanNum.endsWith('3003')) {
         const msg = 'Payment Gateway Error. Please try again or test with an approved card number.';
         setErrorMessage(msg);
-        trackMtag('CheckoutError', { error: 'GatewayError', step: 'PaymentProcessing' });
+        trackMtag('CheckoutError', { error: 'GatewayError', step: 'PaymentProcessing', customer, products });
         return;
       }
 
@@ -201,7 +251,18 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
         estimatedDelivery: '3 - 5 Business Days'
       };
 
-      trackMtag('Purchase', { order_id: newOrder.id, value: totalAmount, currency });
+      trackMtag('Purchase', {
+        order_id: newOrder.id,
+        value: totalAmount,
+        subtotal,
+        discount: discountVal,
+        shippingFee,
+        tax: estimatedTax,
+        currency,
+        customer,
+        payment_method: paymentDetails.method,
+        products
+      });
       onCompleteOrder(newOrder);
     }, 1500);
   };

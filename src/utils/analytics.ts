@@ -26,19 +26,34 @@ export const initAbandonmentTracking = (getAppState: () => {
 
   const handleUnload = () => {
     const state = getAppState();
-    
+
+    const detailedItems = state.cartItems.map((i: any) => ({
+      id: i.product.id,
+      sku: i.product.sku,
+      name: i.product.name,
+      category: i.product.category,
+      badge: i.product.badge || null,
+      price: i.product.price,
+      original_price: i.product.originalPrice || i.product.price,
+      quantity: i.quantity,
+      size: i.selectedSize || 'N/A',
+      color: i.selectedColor || 'N/A',
+      line_total: i.product.price * i.quantity,
+      image: i.product.images?.[0] || null
+    }));
+
+    const cartTotal = state.cartItems.reduce(
+      (sum: number, i: any) => sum + i.product.price * i.quantity, 0
+    );
+
     // 1. Checkout Abandonment
     if (state.currentView === 'checkout') {
       trackMtag('AbandonCheckout', {
         reason: 'PageUnloadOrNavigateAway',
         cart_count: state.cartItems.length,
+        cart_total: cartTotal,
         currency: state.currency,
-        items: state.cartItems.map((i) => ({
-          id: i.product.id,
-          name: i.product.name,
-          price: i.product.price,
-          quantity: i.quantity
-        }))
+        items: detailedItems
       });
     }
 
@@ -47,13 +62,9 @@ export const initAbandonmentTracking = (getAppState: () => {
       trackMtag('AbandonCart', {
         reason: 'PageUnloadWithItemsInCart',
         cart_count: state.cartItems.length,
+        cart_total: cartTotal,
         currency: state.currency,
-        items: state.cartItems.map((i) => ({
-          id: i.product.id,
-          name: i.product.name,
-          price: i.product.price,
-          quantity: i.quantity
-        }))
+        items: detailedItems
       });
     }
 

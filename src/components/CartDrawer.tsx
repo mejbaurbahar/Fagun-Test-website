@@ -242,16 +242,29 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 if (typeof window !== 'undefined' && typeof (window as any).mtag === 'function') {
                   (window as any).mtag('event', {
                     type: 'InitiateCheckout',
+                    timestamp: new Date().toISOString(),
+                    source: 'CartDrawer',
                     value: finalTotal,
+                    subtotal,
+                    discount: discountVal,
+                    shipping: shippingFee,
+                    tax: estimatedTax,
                     currency,
                     num_items: cartItems.reduce((acc, i) => acc + i.quantity, 0),
+                    coupon_applied: discountVal > 0,
                     products: cartItems.map((i) => ({
                       id: i.product.id,
+                      sku: i.product.sku,
                       name: i.product.name,
+                      category: i.product.category,
+                      badge: i.product.badge || null,
                       price: i.product.price,
+                      original_price: i.product.originalPrice || i.product.price,
                       quantity: i.quantity,
-                      size: i.selectedSize,
-                      color: i.selectedColor
+                      size: i.selectedSize || 'N/A',
+                      color: i.selectedColor || 'N/A',
+                      line_total: i.product.price * i.quantity,
+                      image: i.product.images[0]
                     }))
                   });
                 }

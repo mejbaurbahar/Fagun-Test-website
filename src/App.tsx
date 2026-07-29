@@ -100,9 +100,25 @@ export default function App() {
     const selectedSize = size || (product.sizes ? product.sizes[0] : undefined);
     const selectedColor = product.colors ? product.colors[0].name : undefined;
     trackMtag('AddToCart', {
+      source: 'QuickAdd',
       value: product.price,
       currency,
-      products: [{ id: product.id, name: product.name, price: product.price, quantity: 1, size: selectedSize, color: selectedColor }]
+      products: [{
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        category: product.category,
+        badge: product.badge || null,
+        price: product.price,
+        original_price: product.originalPrice || product.price,
+        rating: product.rating,
+        in_stock: product.inStock,
+        stock_count: product.stockCount,
+        quantity: 1,
+        size: selectedSize || 'N/A',
+        color: selectedColor || 'N/A',
+        image: product.images[0]
+      }]
     });
     setCartItems((prev) => {
       const existingIdx = prev.findIndex(
@@ -127,9 +143,27 @@ export default function App() {
 
   const handleAddToCart = (product: Product, quantity: number, size?: string, color?: string) => {
     trackMtag('AddToCart', {
+      source: 'ProductDetail',
       value: product.price * quantity,
       currency,
-      products: [{ id: product.id, name: product.name, price: product.price, quantity, size, color }]
+      products: [{
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        category: product.category,
+        badge: product.badge || null,
+        description: product.description,
+        price: product.price,
+        original_price: product.originalPrice || product.price,
+        rating: product.rating,
+        reviews_count: product.reviewsCount,
+        in_stock: product.inStock,
+        stock_count: product.stockCount,
+        quantity,
+        size: size || 'N/A',
+        color: color || 'N/A',
+        image: product.images[0]
+      }]
     });
     setCartItems((prev) => {
       const existingIdx = prev.findIndex(
@@ -156,10 +190,21 @@ export default function App() {
     handleAddToCart(product, quantity, size, color);
     setSelectedDetailProduct(null);
     trackMtag('InitiateCheckout', {
+      source: 'BuyNow',
       value: product.price * quantity,
       currency,
-      source: 'BuyNow',
-      products: [{ id: product.id, name: product.name, price: product.price, quantity, size, color }]
+      products: [{
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        category: product.category,
+        price: product.price,
+        original_price: product.originalPrice || product.price,
+        quantity,
+        size: size || 'N/A',
+        color: color || 'N/A',
+        image: product.images[0]
+      }]
     });
     setCurrentView('checkout');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -183,7 +228,18 @@ export default function App() {
       trackMtag('RemoveFromCart', {
         value: itemToRemove.product.price * itemToRemove.quantity,
         currency,
-        products: [{ id: itemToRemove.product.id, name: itemToRemove.product.name, price: itemToRemove.product.price, quantity: itemToRemove.quantity }]
+        products: [{
+          id: itemToRemove.product.id,
+          sku: itemToRemove.product.sku,
+          name: itemToRemove.product.name,
+          category: itemToRemove.product.category,
+          price: itemToRemove.product.price,
+          quantity: itemToRemove.quantity,
+          size: itemToRemove.selectedSize || 'N/A',
+          color: itemToRemove.selectedColor || 'N/A',
+          image: itemToRemove.product.images[0]
+        }],
+        remaining_cart_items: cartItems.length - 1
       });
     }
     setCartItems((prev) => prev.filter((_, i) => i !== index));
@@ -191,18 +247,27 @@ export default function App() {
 
   const handleToggleWishlist = (product: Product) => {
     const isWishlisted = wishlistIds.includes(product.id);
+    const wishlistPayload = {
+      value: product.price,
+      currency,
+      products: [{
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        category: product.category,
+        badge: product.badge || null,
+        price: product.price,
+        original_price: product.originalPrice || product.price,
+        rating: product.rating,
+        in_stock: product.inStock,
+        image: product.images[0]
+      }],
+      total_wishlist_count: wishlistIds.length + (isWishlisted ? -1 : 1)
+    };
     if (!isWishlisted) {
-      trackMtag('AddToWishlist', {
-        value: product.price,
-        currency,
-        products: [{ id: product.id, name: product.name, price: product.price }]
-      });
+      trackMtag('AddToWishlist', wishlistPayload);
     } else {
-      trackMtag('RemoveFromWishlist', {
-        value: product.price,
-        currency,
-        products: [{ id: product.id, name: product.name, price: product.price }]
-      });
+      trackMtag('RemoveFromWishlist', wishlistPayload);
     }
     setWishlistIds((prev) =>
       isWishlisted
@@ -233,6 +298,7 @@ export default function App() {
   const handleCompleteOrder = (order: Order) => {
     trackMtag('Purchase', {
       transaction_id: order.id,
+      order_date: order.date,
       value: order.total,
       subtotal: order.subtotal,
       discount: order.discount,
@@ -240,13 +306,34 @@ export default function App() {
       tax: order.tax,
       currency: order.currency,
       payment_method: order.paymentDetails.method,
+      customer: {
+        email: order.shippingAddress.email || order.shippingAddress.emailOrPhone,
+        phone: order.shippingAddress.phone || order.shippingAddress.emailOrPhone,
+        first_name: order.shippingAddress.firstName,
+        last_name: order.shippingAddress.lastName,
+        full_name: `${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`.trim(),
+        address: order.shippingAddress.address,
+        apartment: order.shippingAddress.apartment || '',
+        city: order.shippingAddress.city,
+        state: order.shippingAddress.state,
+        zip_code: order.shippingAddress.zipCode,
+        country: order.shippingAddress.country,
+        email_newsletters: order.shippingAddress.emailNewsletters,
+        text_newsletters: order.shippingAddress.textNewsletters
+      },
       products: order.items.map((item) => ({
         id: item.product.id,
+        sku: item.product.sku,
         name: item.product.name,
+        category: item.product.category,
+        badge: item.product.badge || null,
         price: item.product.price,
+        original_price: item.product.originalPrice || item.product.price,
         quantity: item.quantity,
-        size: item.selectedSize,
-        color: item.selectedColor
+        size: item.selectedSize || 'N/A',
+        color: item.selectedColor || 'N/A',
+        line_total: item.product.price * item.quantity,
+        image: item.product.images[0]
       }))
     });
     setCompletedOrder(order);
@@ -261,7 +348,23 @@ export default function App() {
       trackMtag('ViewItem', {
         value: product.price,
         currency,
-        products: [{ id: product.id, name: product.name, price: product.price, category: product.category }]
+        products: [{
+          id: product.id,
+          sku: product.sku,
+          name: product.name,
+          category: product.category,
+          badge: product.badge || null,
+          description: product.description,
+          price: product.price,
+          original_price: product.originalPrice || product.price,
+          rating: product.rating,
+          reviews_count: product.reviewsCount,
+          in_stock: product.inStock,
+          stock_count: product.stockCount,
+          sizes: product.sizes || [],
+          colors: product.colors?.map(c => c.name) || [],
+          image: product.images[0]
+        }]
       });
     }
     setSelectedDetailProduct(product);
