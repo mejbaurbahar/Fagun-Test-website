@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Star, ShoppingBag, Truck, RefreshCw, ShieldCheck, Check, Heart, ArrowRight } from 'lucide-react';
+import { X, Star, ShoppingBag, Truck, RefreshCw, ShieldCheck, Check, Heart, ArrowRight, Ruler } from 'lucide-react';
 import { Product, Currency } from '../types';
 import { CURRENCY_RATES } from '../data/products';
 
