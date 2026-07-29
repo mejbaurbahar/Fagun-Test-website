@@ -1,0 +1,6 @@
+{
+  "name": "Fagun Luxury Store",
+  "description": "A premium luxury e-commerce application with product catalog, cart drawer, checkout, shipping calculations, and Stripe payment gateway.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
