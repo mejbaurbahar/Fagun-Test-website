@@ -2,7 +2,11 @@ import React from 'react';
 import { ShieldCheck, Truck, Lock, ArrowRight, Instagram, Facebook, Twitter } from 'lucide-react';
 import { trackMtag } from '../utils/analytics';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onOpenSizeGuide?: () => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onOpenSizeGuide }) => {
   return (
     <footer className="bg-neutral-950 border-t border-neutral-800 text-neutral-400 text-xs">
       
@@ -80,7 +84,15 @@ export const Footer: React.FC = () => {
           <ul className="space-y-2 text-neutral-400">
             <li><a href="#shipping" className="hover:text-white transition-colors">Shipping & Delivery</a></li>
             <li><a href="#returns" className="hover:text-white transition-colors">Returns & Exchanges</a></li>
-            <li><a href="#size" className="hover:text-white transition-colors">Size Guide</a></li>
+            <li>
+              <button
+                type="button"
+                onClick={() => onOpenSizeGuide && onOpenSizeGuide()}
+                className="hover:text-[var(--accent-lime)] text-left cursor-pointer transition-colors text-xs"
+              >
+                Size Guide
+              </button>
+            </li>
             <li><a href="#order" className="hover:text-white transition-colors">Track Your Order</a></li>
             <li><a href="#contact" className="hover:text-white transition-colors">Contact Concierge</a></li>
           </ul>

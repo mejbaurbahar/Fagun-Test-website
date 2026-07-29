@@ -5,16 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Fagun luxury storefront experience" />
     <title>Fagun Luxury Store</title>
-    <!-- MarkTag SDK -->
+    <!-- MarkTag SDK Initialization -->
     <script>
       window.mtrem = window.mtrem || [];
-      function mtag() { mtrem.push(arguments) };
-      mtag("init", "https://mtag.markopolo.ai?tagId=dxoDDL", {"consent":true});
+      function mtag() { window.mtrem.push(arguments); }
+      window.mtag = mtag;
+      mtag("init", "https://mtag.markopolo.ai?tagId=dxoDDL", { "consent": true });
       mtag("event", { type: "ViewContent" });
     </script>
     <script async type="text/javascript" src="https://mtag.markopolo.ai/script"></script>
-    <script type="module" crossorigin src="./assets/index-BpXtWLGL.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-YGo9GwQM.css">
+    <script type="module" crossorigin src="./assets/index-CxFcE2sx.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BX0YhOkD.css">
   </head>
   <body>
     <div id="root"></div>

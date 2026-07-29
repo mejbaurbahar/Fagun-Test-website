@@ -8,6 +8,7 @@ import { WishlistDrawer } from './components/WishlistDrawer';
 import { CheckoutView } from './components/CheckoutView';
 import { OrderConfirmation } from './components/OrderConfirmation';
 import { Footer } from './components/Footer';
+import { SizeGuideModal } from './components/SizeGuideModal';
 
 import { INITIAL_PRODUCTS } from './data/products';
 import { Product, CartItem, Category, Currency, Order } from './types';
@@ -25,6 +26,14 @@ export default function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [selectedDetailProduct, setSelectedDetailProduct] = useState<Product | null>(null);
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
+  const [sizeGuideCategory, setSizeGuideCategory] = useState<'Clothing' | 'Footwear' | 'Accessories'>('Clothing');
+
+  const handleOpenSizeGuide = (cat?: 'Clothing' | 'Footwear' | 'Accessories') => {
+    if (cat) setSizeGuideCategory(cat);
+    setIsSizeGuideOpen(true);
+    trackMtag('ViewSizeGuide', { category: cat || 'Clothing' });
+  };
 
   // Cart & Wishlist Local State
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -496,6 +505,7 @@ export default function App() {
         onBuyNow={handleBuyNow}
         isWishlisted={selectedDetailProduct ? wishlistIds.includes(selectedDetailProduct.id) : false}
         onToggleWishlist={handleToggleWishlist}
+        onOpenSizeGuide={handleOpenSizeGuide}
       />
 
       <CartDrawer
@@ -525,8 +535,14 @@ export default function App() {
         onViewDetails={(product) => handleViewProductDetail(product)}
       />
 
+      <SizeGuideModal
+        isOpen={isSizeGuideOpen}
+        onClose={() => setIsSizeGuideOpen(false)}
+        initialCategory={sizeGuideCategory}
+      />
+
       {/* Footer */}
-      {currentView === 'shop' && <Footer />}
+      {currentView === 'shop' && <Footer onOpenSizeGuide={handleOpenSizeGuide} />}
 
     </div>
   );

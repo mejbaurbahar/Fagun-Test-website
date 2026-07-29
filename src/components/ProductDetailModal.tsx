@@ -11,6 +11,7 @@ interface ProductDetailModalProps {
   onBuyNow: (product: Product, quantity: number, size?: string, color?: string) => void;
   isWishlisted: boolean;
   onToggleWishlist: (product: Product) => void;
+  onOpenSizeGuide?: (category?: 'Clothing' | 'Footwear' | 'Accessories') => void;
 }
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -20,7 +21,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onAddToCart,
   onBuyNow,
   isWishlisted,
-  onToggleWishlist
+  onToggleWishlist,
+  onOpenSizeGuide
 }) => {
   if (!product) return null;
 
@@ -179,9 +181,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="space-y-2 pt-2">
                   <div className="flex justify-between items-center text-xs">
                     <label className="font-semibold text-neutral-300">Select Size:</label>
-                    <span className="text-[11px] text-neutral-400 underline cursor-pointer hover:text-white">
-                      Size Guide
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onOpenSizeGuide && onOpenSizeGuide(
+                        product.category === 'Footwear' || product.category === 'Accessories' ? product.category : 'Clothing'
+                      )}
+                      className="text-[11px] text-[var(--accent-lime)] hover:underline cursor-pointer flex items-center gap-1 font-medium"
+                    >
+                      <Ruler className="w-3 h-3" />
+                      <span>Size Guide</span>
+                    </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {product.sizes.map((sz) => (

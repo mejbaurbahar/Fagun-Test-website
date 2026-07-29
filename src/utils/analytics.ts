@@ -1,20 +1,57 @@
 // MarkTag Analytics Event Helper
 export const trackMtag = (eventType: string, data?: Record<string, any>) => {
-  if (typeof window !== 'undefined') {
-    const payload = { type: eventType, timestamp: new Date().toISOString(), ...data };
-    console.log(`[MarkTag Analytics] Event Triggered: ${eventType}`, payload);
+  if (typeof window === 'undefined') return;
 
+  const payload = {
+    type: eventType,
+    timestamp: new Date().toISOString(),
+    tagId: 'dxoDDL',
+    ...data
+  };
+
+  // Log to browser console so user and developers can visually verify event payload
+  console.log(`%c[MarkTag SDK Event] ${eventType}`, 'color:#a3e635;font-weight:bold;font-size:12px;', payload);
+
+  // 1. Call global mtag function & mtrem queue
+  try {
     if (typeof (window as any).mtag === 'function') {
       (window as any).mtag('event', payload);
-    } else if (Array.isArray((window as any).mtrem)) {
-      (window as any).mtrem.push(['event', payload]);
     }
+    (window as any).mtrem = (window as any).mtrem || [];
+    (window as any).mtrem.push(['event', payload]);
+  } catch (err) {
+    console.error('[MarkTag] Error invoking mtag:', err);
+  }
+
+  // 2. Direct network beacon / fetch dispatch to ensure an HTTP request is recorded in DevTools Network tab
+  try {
+    const endpoint = 'https://mtag.markopolo.ai/event?tagId=dxoDDL';
+    const bodyStr = JSON.stringify(payload);
+
+    if (navigator.sendBeacon) {
+      const blob = new Blob([bodyStr], { type: 'application/json' });
+      navigator.sendBeacon(endpoint, blob);
+    } else {
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: bodyStr,
+        keepalive: true
+      }).catch(() => {
+        /* Network error fallback handled silently */
+      });
+    }
+  } catch (err) {
+    /* silent fallback */
   }
 };
 
 /**
- * Automatically attaches unload listeners (beforeunload/pagehide)
- * to detect and fire CartAbandonment, CheckoutAbandonment, and BrowseAbandonment.
+ * initAbandonmentTracking
+ * Attaches unload listeners (beforeunload/pagehide) to detect:
+ *   - AbandonCheckout
+ *   - AbandonCart
+ *   - AbandonBrowse
  */
 export const initAbandonmentTracking = (getAppState: () => {
   cartItems: any[];
@@ -78,7 +115,10 @@ export const initAbandonmentTracking = (getAppState: () => {
   };
 
   window.addEventListener('beforeunload', handleUnload);
+  window.addEventListener('pagehide', handleUnload);
+
   return () => {
     window.removeEventListener('beforeunload', handleUnload);
+    window.removeEventListener('pagehide', handleUnload);
   };
 };
