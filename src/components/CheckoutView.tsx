@@ -25,6 +25,10 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
   onCompleteOrder,
   onBackToShop
 }) => {
+  useEffect(() => {
+    trackMtag('CheckoutStarted', { value: totalAmount, itemsCount: cartItems.length });
+  }, []);
+
   // Shipping Address Form State
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     email: 'user@example.com',
@@ -116,8 +120,10 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     const ok = onApplyDiscount(inputCoupon.trim());
     if (ok) {
       setCouponSuccess('Discount code applied!');
+      trackMtag('ApplyDiscount', { code: inputCoupon.trim(), success: true });
     } else {
       setCouponError('Invalid code. Try "FAGUN10"');
+      trackMtag('ApplyDiscount', { code: inputCoupon.trim(), success: false });
     }
   };
 
@@ -127,22 +133,31 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
 
     // Basic Validation
     if (!shippingAddress.email.trim() && !shippingAddress.phone.trim() && !shippingAddress.emailOrPhone.trim()) {
-      setErrorMessage('Please enter your contact email address or mobile phone number.');
+      const msg = 'Please enter your contact email address or mobile phone number.';
+      setErrorMessage(msg);
+      trackMtag('CheckoutError', { error: msg, step: 'ContactInfo' });
       return;
     }
     if (!shippingAddress.firstName || !shippingAddress.lastName) {
-      setErrorMessage('Please enter your first and last name.');
+      const msg = 'Please enter your first and last name.';
+      setErrorMessage(msg);
+      trackMtag('CheckoutError', { error: msg, step: 'ShippingName' });
       return;
     }
     if (!shippingAddress.address || !shippingAddress.city || !shippingAddress.zipCode) {
-      setErrorMessage('Please complete your shipping address details.');
+      const msg = 'Please complete your shipping address details.';
+      setErrorMessage(msg);
+      trackMtag('CheckoutError', { error: msg, step: 'ShippingAddress' });
       return;
     }
     if (!paymentDetails.cardNumber || !paymentDetails.expirationDate || !paymentDetails.securityCode) {
-      setErrorMessage('Please enter valid credit card details.');
+      const msg = 'Please enter valid credit card details.';
+      setErrorMessage(msg);
+      trackMtag('CheckoutError', { error: msg, step: 'PaymentDetails' });
       return;
     }
 
+    trackMtag('CheckoutStep', { step: 3, step_name: 'SubmitPayment', payment_method: paymentDetails.method, value: totalAmount });
     setIsProcessing(true);
 
     // Simulate Stripe Payment Gateway Response based on Test Card Inputs
@@ -152,12 +167,16 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
       const cleanNum = paymentDetails.cardNumber.replace(/\s+/g, '');
 
       if (cleanNum.endsWith('2002')) {
-        setErrorMessage('Your card was declined. Please test with card "4242 4242 4242 4242" for an approved transaction.');
+        const msg = 'Your card was declined. Please test with card "4242 4242 4242 4242" for an approved transaction.';
+        setErrorMessage(msg);
+        trackMtag('CheckoutError', { error: 'CardDeclined', step: 'PaymentProcessing' });
         return;
       }
 
       if (cleanNum.endsWith('3003')) {
-        setErrorMessage('Payment Gateway Error. Please try again or test with an approved card number.');
+        const msg = 'Payment Gateway Error. Please try again or test with an approved card number.';
+        setErrorMessage(msg);
+        trackMtag('CheckoutError', { error: 'GatewayError', step: 'PaymentProcessing' });
         return;
       }
 
@@ -182,6 +201,7 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
         estimatedDelivery: '3 - 5 Business Days'
       };
 
+      trackMtag('Purchase', { order_id: newOrder.id, value: totalAmount, currency });
       onCompleteOrder(newOrder);
     }, 1500);
   };
@@ -192,8 +212,11 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
       {/* Checkout Top Bar */}
       <header className="bg-white border-b border-neutral-200 py-5 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs">
         <button
-          onClick={onBackToShop}
-          className="flex items-center gap-2 text-xs font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+          onClick={() => {
+            trackMtag('AbandonCheckout', { reason: 'UserReturnedToStore', value: totalAmount, currency });
+            onBackToShop();
+          }}
+          className="flex items-center gap-2 text-xs font-medium text-neutral-600 hover:text-neutral-900 transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Return to Store</span>

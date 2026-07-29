@@ -11,7 +11,7 @@ import { Footer } from './components/Footer';
 
 import { INITIAL_PRODUCTS } from './data/products';
 import { Product, CartItem, Category, Currency, Order } from './types';
-import { trackMtag } from './utils/analytics';
+import { trackMtag, initAbandonmentTracking } from './utils/analytics';
 
 export default function App() {
   // Navigation & View State
@@ -19,6 +19,7 @@ export default function App() {
   const [currentCategory, setCurrentCategory] = useState<Category>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currency, setCurrency] = useState<Currency>('USD');
+  const [viewedProductCount, setViewedProductCount] = useState<number>(0);
 
   // Drawers & Modals
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -33,7 +34,6 @@ export default function App() {
     } catch (e) {
       console.error('Error loading cart:', e);
     }
-    // Default initial cart item matching the "Silk Blouse with Pleated Sleeves" ($410) in screenshot
     return [
       {
         product: INITIAL_PRODUCTS[0],
@@ -78,6 +78,17 @@ export default function App() {
       console.error('Error saving wishlist:', e);
     }
   }, [wishlistIds]);
+
+  // Automatic Abandonment Tracking (AbandonCart, AbandonCheckout, AbandonBrowse)
+  useEffect(() => {
+    const cleanup = initAbandonmentTracking(() => ({
+      cartItems,
+      currentView,
+      viewedProductCount,
+      currency
+    }));
+    return cleanup;
+  }, [cartItems, currentView, viewedProductCount, currency]);
 
   // Track PageView on view change
   useEffect(() => {
@@ -246,6 +257,7 @@ export default function App() {
 
   const handleViewProductDetail = (product: Product | null) => {
     if (product) {
+      setViewedProductCount((prev) => prev + 1);
       trackMtag('ViewItem', {
         value: product.price,
         currency,

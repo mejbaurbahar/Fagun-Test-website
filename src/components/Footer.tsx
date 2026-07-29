@@ -1,5 +1,6 @@
 import React from 'react';
 import { ShieldCheck, Truck, Lock, ArrowRight, Instagram, Facebook, Twitter } from 'lucide-react';
+import { trackMtag } from '../utils/analytics';
 
 export const Footer: React.FC = () => {
   return (
@@ -15,7 +16,19 @@ export const Footer: React.FC = () => {
             </p>
           </div>
 
-          <form onSubmit={(e) => e.preventDefault()} className="flex gap-2 max-w-md w-full">
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const input = form.querySelector('input[type="email"]') as HTMLInputElement;
+              if (input && input.value) {
+                trackMtag('NewsletterSubscribe', { email: input.value });
+                alert('Thank you for subscribing to the Fagun Luxury Atelier Club!');
+                input.value = '';
+              }
+            }} 
+            className="flex gap-2 max-w-md w-full"
+          >
             <input
               type="email"
               placeholder="Enter your email address"
@@ -24,7 +37,7 @@ export const Footer: React.FC = () => {
             />
             <button
               type="submit"
-              className="bg-[var(--accent-lime)] text-[var(--accent-lime-ink)] font-semibold px-5 py-2.5 rounded flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+              className="bg-[var(--accent-lime)] text-[var(--accent-lime-ink)] font-semibold px-5 py-2.5 rounded flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer"
             >
               <span>Subscribe</span>
               <ArrowRight className="w-3.5 h-3.5" />
